@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Stores user profile information for both customers and professionals.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phoneNumber": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "professional", "admin"] },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role"]
+    },
+    "professionals": {
+      "title": "Professional Partner",
+      "description": "Detailed profile for service providers.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "experience": { "type": "string" },
+        "bio": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "pricePerHour": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "availabilityStatus": { "type": "string", "enum": ["Available", "Busy"] },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "workingHours": { "type": "string" }
+      },
+      "required": ["uid", "name", "category", "pricePerHour"]
+    },
+    "bookings": {
+      "title": "Service Booking",
+      "description": "Records of service appointments.",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "service": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Completed", "Cancelled"] },
+        "amount": { "type": "number" },
+        "paymentMode": { "type": "string", "enum": ["full", "advance"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "professionalId", "service", "status"]
+    },
+    "messages": {
+      "title": "Chat Message",
+      "description": "Messages exchanged between users.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "users", "description": "User profiles." },
+    "/professionals/{proId}": { "schema": "professionals", "description": "Professional profiles." },
+    "/bookings/{bookingId}": { "schema": "bookings", "description": "Service bookings." },
+    "/messages/{msgId}": { "schema": "messages", "description": "Chat messages." }
+  }
+}

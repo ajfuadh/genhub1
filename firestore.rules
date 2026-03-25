@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'customer') == 'admin') ||
+        (request.auth.token.email == "isnadwi28@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Check if user is part of a booking
+    function isBookingParticipant(bookingId) {
+      return isAuthenticated() && 
+             bookingId != null && 
+             exists(/databases/$(database)/documents/bookings/$(bookingId)) &&
+             (get(/databases/$(database)/documents/bookings/$(bookingId)).data.customerId == request.auth.uid ||
+              get(/databases/$(database)/documents/bookings/$(bookingId)).data.professionalId == request.auth.uid);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && request.resource.data.role != 'admin';
+      allow update: if isAuthenticated() && isOwner(userId) && 
+        // Role transition: customer -> professional allowed, but never to admin
+        (request.resource.data.get('role', 'customer') == resource.data.get('role', 'customer') || (resource.data.get('role', 'customer') == 'customer' && request.resource.data.role == 'professional')) &&
+        request.resource.data.get('role', 'customer') != 'admin' &&
+        // Approval status: can only set to 'pending' if not already set or if it was rejected
+        (request.resource.data.get('approvalStatus', null) == resource.data.get('approvalStatus', null) || request.resource.data.approvalStatus == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    match /professionals/{proId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isOwner(proId) || isAdmin());
+      allow update: if isAuthenticated() && (
+        (isOwner(proId) && request.resource.data.get('approvalStatus', 'pending') == resource.data.get('approvalStatus', 'pending')) || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId || 
+        request.auth.uid == resource.data.professionalId || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.customerId;
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId || 
+        request.auth.uid == resource.data.professionalId || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{msgId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.senderId || 
+        request.auth.uid == resource.data.receiverId || 
+        isBookingParticipant(resource.data.bookingId) ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.receiverId || 
+        isAdmin()
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
